@@ -22,48 +22,44 @@ class PostsRepositoryImpl implements PostsRepository {
   });
 
   @override
-  Future<Either<Failure, List<Post>>> getAllPosts() async {
-    return await _executeWithCacheCheck(
+  Future<Either<Failure, List<Post>>> getAllPosts() =>
+    _executeWithCacheCheck(
       action: () async {
         final remotePosts = await remoteDataSource.getAllPosts();
         localDataSource.cachePosts(remotePosts);
         return remotePosts;
       },
     );
-  }
+
 
   @override
-  Future<Either<Failure, Unit>> addPost(Post post) async {
+  Future<Either<Failure, Unit>> addPost(Post post)  {
     return _executeActionSafe(() => remoteDataSource.addPost(post.toModel()));
   }
 
   @override
-  Future<Either<Failure, Unit>> deletePost(int postId) async {
+  Future<Either<Failure, Unit>> deletePost(int postId) {
     return _executeActionSafe(() => remoteDataSource.deletePost(postId));
   }
 
   @override
-  Future<Either<Failure, Unit>> updatePost(Post post) async {
+  Future<Either<Failure, Unit>> updatePost(Post post) {
     return _executeActionSafe(() => remoteDataSource.updatePost(post.toModel()));
   }
 
-// دالة موحدة لعمليات الـ GET مع التعامل الذكي مع الكاش
-  Future<Either<Failure, List<Post>>> _executeWithCacheCheck({
-    required TaskAction<List<Post>> action,
-  }) async {
+  Future<Either<Failure, List<Post>>> _executeWithCacheCheck({required TaskAction<List<Post>> action,}) async {
     if (await networkInfo.isConnected) {
       try {
         final result = await action();
         return Right(result);
       } catch (_) {
-        return await _returnLocalData();
+        return _returnLocalData();
       }
-    } else {
-      return await _returnLocalData();
+    }
+    else {
+      return _returnLocalData();
     }
   }
-
-  // دالة موحدة لعمليات الـ Add/Update/Delete
   Future<Either<Failure, Unit>> _executeActionSafe(TaskAction<Unit> action) async {
     if (await networkInfo.isConnected) {
       try {
@@ -71,14 +67,13 @@ class PostsRepositoryImpl implements PostsRepository {
         return const Right(unit);
       } on ServerException {
         return Left(ServerFailure());
-      } catch (_) {
-        return Left(ServerFailure()); // التعامل مع أي خطأ غير متوقع
+      } catch (e) {
+        return Left(ServerFailure());
       }
     } else {
       return Left(OfflineFailure());
     }
   }
-
   Future<Either<Failure, List<Post>>> _returnLocalData() async {
     try {
       final localPosts = await localDataSource.getCachedPosts();
