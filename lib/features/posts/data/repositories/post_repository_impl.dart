@@ -1,17 +1,14 @@
 import 'package:dartz/dartz.dart';
-
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
-
 import '../../../../core/network/network_info.dart';
 import '../../domain/entity/post.dart';
 import '../../domain/repositories/posts_repository.dart';
-
 import '../datasources/post_local_data_source.dart';
 import '../datasources/post_remote_data_source.dart';
 import '../models/post_model.dart';
 
-typedef DeleteOrUpdateOrAddPost = Future<Unit> Function();
+typedef TaskAction<T> = Future<T> Function();
 
 class PostsRepositoryImpl implements PostsRepository {
   final PostRemoteDataSource remoteDataSource;
@@ -26,70 +23,68 @@ class PostsRepositoryImpl implements PostsRepository {
 
   @override
   Future<Either<Failure, List<Post>>> getAllPosts() async {
-    if (await networkInfo.isConnected) {
-      try {
+    return await _executeWithCacheCheck(
+      action: () async {
         final remotePosts = await remoteDataSource.getAllPosts();
         localDataSource.cachePosts(remotePosts);
-        return Right(remotePosts);
-      } on ServerException {
-        return Left(ServerFailure());
-      }
-    } else {
-      try {
-        final localPosts = await localDataSource.getCachedPosts();
-        return Right(localPosts);
-      } on EmptyCacheException {
-        return Left(EmptyCacheFailure());
-      }
-    }
+        return remotePosts;
+      },
+    );
   }
 
   @override
   Future<Either<Failure, Unit>> addPost(Post post) async {
-    final PostModel postModel = PostModel(
-      id: post.id,
-      userId: post.userId,
-      title: post.title,
-      body: post.body,
-    );
-
-    return await _getMessage(() {
-      return remoteDataSource.addPost(postModel);
-    });
+    return _executeActionSafe(() => remoteDataSource.addPost(post.toModel()));
   }
 
   @override
   Future<Either<Failure, Unit>> deletePost(int postId) async {
-    return await _getMessage(() {
-      return remoteDataSource.deletePost(postId);
-    });
+    return _executeActionSafe(() => remoteDataSource.deletePost(postId));
   }
 
   @override
   Future<Either<Failure, Unit>> updatePost(Post post) async {
-    final PostModel postModel = PostModel(
-      id: post.id,
-      userId: post.userId,
-      title: post.title,
-      body: post.body,
-    );
-    return await _getMessage(() {
-      return remoteDataSource.updatePost(postModel);
-    });
+    return _executeActionSafe(() => remoteDataSource.updatePost(post.toModel()));
   }
 
-  Future<Either<Failure, Unit>> _getMessage(
-    DeleteOrUpdateOrAddPost deleteOrUpdateOrAddPost,
-  ) async {
+// دالة موحدة لعمليات الـ GET مع التعامل الذكي مع الكاش
+  Future<Either<Failure, List<Post>>> _executeWithCacheCheck({
+    required TaskAction<List<Post>> action,
+  }) async {
     if (await networkInfo.isConnected) {
       try {
-        await deleteOrUpdateOrAddPost();
-        return Right(unit);
+        final result = await action();
+        return Right(result);
+      } catch (_) {
+        return await _returnLocalData();
+      }
+    } else {
+      return await _returnLocalData();
+    }
+  }
+
+  // دالة موحدة لعمليات الـ Add/Update/Delete
+  Future<Either<Failure, Unit>> _executeActionSafe(TaskAction<Unit> action) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await action();
+        return const Right(unit);
       } on ServerException {
         return Left(ServerFailure());
+      } catch (_) {
+        return Left(ServerFailure()); // التعامل مع أي خطأ غير متوقع
       }
     } else {
       return Left(OfflineFailure());
+    }
+  }
+
+  Future<Either<Failure, List<Post>>> _returnLocalData() async {
+    try {
+      final localPosts = await localDataSource.getCachedPosts();
+      return Right(localPosts);
+    } on EmptyCacheException {
+      return Left(EmptyCacheFailure());
     }
   }
 }
