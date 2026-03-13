@@ -1,7 +1,7 @@
 class ServerException implements Exception {
   final String? message;
 
-  ServerException([this.message]); // الـ [] تجعل البراميتر اختيارياً
+  ServerException([this.message]);
 }
 
 class EmptyCacheException implements Exception {
@@ -11,3 +11,5 @@ class EmptyCacheException implements Exception {
 }
 
 class OfflineException implements Exception {}
+
+

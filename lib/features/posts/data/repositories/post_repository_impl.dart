@@ -22,8 +22,7 @@ class PostsRepositoryImpl implements PostsRepository {
   });
 
   @override
-  Future<Either<Failure, List<Post>>> getAllPosts() =>
-    _executeWithCacheCheck(
+  Future<Either<Failure, List<Post>>> getAllPosts() => _executeWithCacheCheck(
       action: () async {
         final remotePosts = await remoteDataSource.getAllPosts();
         localDataSource.cachePosts(remotePosts);

@@ -3,6 +3,10 @@ import 'package:dio/dio.dart';
 import '../../../../core/error/exceptions.dart';
 import '../models/post_model.dart';
 
+
+typedef DioAction<T> = Future<Response<T>> Function();
+
+
 abstract interface class PostRemoteDataSource {
   Future<List<PostModel>> getAllPosts();
   Future<Unit> deletePost(int postId);
@@ -31,35 +35,23 @@ class PostRemoteDataSourceImpl implements PostRemoteDataSource {
   }
 
   @override
-  Future<Unit> addPost(PostModel postModel) async {
-    try {
-      await dio.post('$_baseUrl/posts', data: postModel.toJson(),);
-      return unit;
-    } on DioException {
-      throw ServerException();
-    }
-  }
+  Future<Unit> addPost(PostModel postModel)
+    => _performApiUnitRequest(() => dio.post('$_baseUrl/posts', data: postModel.toJson()));
 
   @override
-  Future<Unit> deletePost(int postId) async {
-    try {
-      await dio.delete('$_baseUrl/posts/$postId');
-      return unit;
-    } on DioException {
-      throw ServerException();
-    }
-  }
+  Future<Unit> deletePost(int postId)
+    => _performApiUnitRequest(() => dio.delete('$_baseUrl/posts/$postId'));
 
   @override
-  Future<Unit> updatePost(PostModel postModel) async {
-    try {
-      await dio.patch(
-        '$_baseUrl/posts/${postModel.id}',
-        data: postModel.toJson(),
-      );
-      return unit;
-    } on DioException {
-      throw ServerException();
-    }
+  Future<Unit> updatePost(PostModel postModel)
+    => _performApiUnitRequest(() => dio.patch('$_baseUrl/posts/${postModel.id}', data: postModel.toJson()));
+}
+
+Future<Unit> _performApiUnitRequest<T>(Future<T> Function() apiCall) async {
+  try {
+    await apiCall();
+    return unit;
+  } on DioException {
+    throw ServerException();
   }
 }
