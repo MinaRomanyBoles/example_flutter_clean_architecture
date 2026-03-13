@@ -26,14 +26,12 @@ class PostLocalDataSourceImpl implements PostLocalDataSource {
   @override
   Future<List<PostModel>> getCachedPosts() async{
     final jsonString = sharedPreferences.getString(_cachedPostsKey);
-    if (jsonString != null) {
-      final decodedJsonData = json.decode(jsonString) as List;
-      final jsonToPostModels = decodedJsonData
-          .map<PostModel>((jsonPostModel) => PostModel.fromJson(jsonPostModel as Map<String, dynamic>))
-          .toList();
-      return jsonToPostModels;
-    } else {
+    if (jsonString == null) {
       throw EmptyCacheException();
     }
+    final decodedJsonData = json.decode(jsonString) as List;
+    return decodedJsonData
+        .map<PostModel>((jsonPostModel) => PostModel.fromJson(jsonPostModel as Map<String, dynamic>))
+        .toList();
   }
 }
